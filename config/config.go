@@ -22,6 +22,7 @@ var Config configuration
 var Channel *amqp.Channel
 var DeployQueue amqp.Queue
 var BuildQueue amqp.Queue
+var StatusQueue amqp.Queue
 var err error
 var Clientset *kubernetes.Clientset
 var config *rest.Config
@@ -33,7 +34,7 @@ func failOnError(err error, msg string) {
 }
 
 func init() {
-	err := InitConfig()
+	err = InitConfig()
 	if err != nil {
 		log.Println(err)
 	}
@@ -42,6 +43,8 @@ func init() {
 	if err != nil {
 		log.Println(err)
 	}
+
+	InitRabbit()
 
 }
 
@@ -121,6 +124,16 @@ func InitRabbit() {
 		nil,      // arguments
 	)
 	failOnError(err, "Failed to declare a deploy queue")
+
+	StatusQueue, err = Channel.QueueDeclare(
+		"Status", // name
+		false,    // durable
+		false,    // delete when unused
+		false,    // exclusive
+		false,    // no-wait
+		nil,      // arguments
+	)
+	failOnError(err, "Failed to declare a status queue")
 	/*
 		ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
 

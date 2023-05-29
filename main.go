@@ -4,29 +4,30 @@ import (
 	"context"
 	"encoding/json"
 	"log"
-	"math/rand"
 	"time"
 
-	"github.com/Mohamed-Rafraf/rabbitMQ/config"
-	"github.com/Mohamed-Rafraf/rabbitMQ/pkg"
+	"github.com/Mohamed-Rafraf/kube-builder/config"
+	"github.com/Mohamed-Rafraf/kube-builder/pkg"
+	"github.com/Mohamed-Rafraf/kube-builder/utils"
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
+var err error
+
 func DeployTime() {
 	for {
+		var status *pkg.Status
 		// Generate a random number between 1 and 100
-		randomNumber := rand.Intn(100) + 1
-
-		if randomNumber == 50 {
+		status, err = utils.Delete()
+		if err != nil {
+			log.Println(err)
+			continue
+		}
+		if status != nil && status.Status == "Succeeded" {
 			log.Println("Publishing To Deploy Queue")
-			// Create a struct instance
-			deploy := pkg.Deploy{
-				AppName: "Hello",
-				Port:    42,
-			}
 
 			// Serialize the struct to JSON
-			jsonData, err := json.Marshal(deploy)
+			jsonData, err := json.Marshal(status)
 			if err != nil {
 				log.Fatalf("Failed to serialize struct to JSON: %v", err)
 			}
@@ -66,10 +67,20 @@ func main() {
 	}
 
 	var forever chan struct{}
-
+	var data pkg.Data
 	go func() {
 		for d := range msgs {
-			log.Printf("Received a message: %s", d.Body)
+			err = json.Unmarshal(d.Body, &data)
+			log.Println("Data Recieved", data)
+			if err != nil {
+				log.Println(err)
+				continue
+			}
+
+			err = utils.Build(&data)
+			if err != nil {
+				log.Println(err)
+			}
 		}
 	}()
 

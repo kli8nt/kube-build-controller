@@ -15,8 +15,14 @@ type Data struct {
 	BuildCommand         string `json:"build_command"`
 	InstallCommand       string `json:"install_command"`
 	DependenciesFiles    string `json:"dependencies_files"`
-	IsStatic             bool   `json:"is_static"`
+	IsStatic             string `json:"is_static"`
 	OutputDirectory      string `json:"output_directory"`
 	EnvironmentVariables string `json:"environment_variables"`
 	Port                 string `json:"application_port"`
+}
+
+type Status struct {
+	ApplicationName string `json:"application_name"`
+	Status          string `json:"status"`
+	Port            string `json:"port"`
 }
