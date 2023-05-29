@@ -1,24 +1,30 @@
 package config
 
 import (
-	"fmt"
+	"flag"
 	"log"
 
 	"github.com/caarlos0/env"
 	amqp "github.com/rabbitmq/amqp091-go"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
 )
 
-type config struct {
+type configuration struct {
 	Server   string `env:"HOST" envDefault:"localhost" `
 	Port     string `env:"PORT" envDefault:"5672"`
 	Password string `env:"PASSWORD" envDefault:"guest"`
 	Username string `env:"USERNAME" envDefault:"guest"`
 }
 
-var Config config
+var Config configuration
 var Channel *amqp.Channel
 var DeployQueue amqp.Queue
 var BuildQueue amqp.Queue
+var err error
+var Clientset *kubernetes.Clientset
+var config *rest.Config
 
 func failOnError(err error, msg string) {
 	if err != nil {
@@ -27,12 +33,66 @@ func failOnError(err error, msg string) {
 }
 
 func init() {
-	config := config{}
-	if err := env.Parse(&config); err != nil {
-		fmt.Printf("%+v\n", err)
+	err := InitConfig()
+	if err != nil {
+		log.Println(err)
 	}
-	log.Println(config)
-	url := "amqp://" + config.Username + ":" + config.Password + "@" + config.Server + ":" + config.Port + "/"
+
+	err = ClusterConfig()
+	if err != nil {
+		log.Println(err)
+	}
+
+}
+
+func ClusterConfig() error {
+	var err error
+
+	kubeconfig := flag.String("kubeconfig", "", "absolute path to the kubeconfig file")
+
+	flag.Parse()
+
+	if *kubeconfig != "" {
+		// use the current context in kubeconfig
+		config, err = clientcmd.BuildConfigFromFlags("", *kubeconfig)
+		if err != nil {
+			return err
+		}
+
+		// create the Clientset
+		Clientset, err = kubernetes.NewForConfig(config)
+		if err != nil {
+			return err
+		}
+
+	} else {
+		// creates the in-cluster config
+		config, err = rest.InClusterConfig()
+		if err != nil {
+			return err
+		}
+		// creates the Clientset
+		Clientset, err = kubernetes.NewForConfig(config)
+		if err != nil {
+			return err
+		}
+
+	}
+
+	return nil
+}
+
+func InitConfig() error {
+	err := env.Parse(&Config)
+	if err != nil {
+		return err
+	}
+	return nil
+
+}
+
+func InitRabbit() {
+	url := "amqp://" + Config.Username + ":" + Config.Password + "@" + Config.Server + ":" + Config.Port + "/"
 
 	log.Println(url)
 	conn, err := amqp.Dial(url)
@@ -75,4 +135,5 @@ func init() {
 				Body:        []byte(body),
 			})
 		failOnError(err, "Failed to publish a message")*/
+
 }
